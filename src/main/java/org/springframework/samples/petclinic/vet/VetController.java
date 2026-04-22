@@ -16,15 +16,26 @@
 package org.springframework.samples.petclinic.vet;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+
+import jakarta.validation.Valid;
+
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
  * @author Juergen Hoeller
@@ -37,17 +48,32 @@ class VetController {
 
 	private final VetRepository vetRepository;
 
-	public VetController(VetRepository vetRepository) {
+	private final SpecialtyRepository specialtyRepository;
+
+	public VetController(VetRepository vetRepository, SpecialtyRepository specialtyRepository) {
 		this.vetRepository = vetRepository;
+		this.specialtyRepository = specialtyRepository;
+	}
+
+	@InitBinder
+	public void setAllowedFields(WebDataBinder dataBinder) {
+		dataBinder.setDisallowedFields("id", "*.id");
+	}
+
+	@ModelAttribute("vet")
+	public Vet findVet(@PathVariable(name = "vetId", required = false) Integer vetId) {
+		return vetId == null ? new Vet() : this.vetRepository.findById(vetId)
+			.orElseThrow(() -> new IllegalArgumentException("Vet not found with id: " + vetId));
+	}
+
+	@ModelAttribute("specialties")
+	public List<Specialty> specialties() {
+		return this.specialtyRepository.findSpecialties();
 	}
 
 	@GetMapping("/vets.html")
 	public String showVetList(@RequestParam(defaultValue = "1") int page, Model model) {
-		// Here we are returning an object of type 'Vets' rather than a collection of Vet
-		// objects so it is simpler for Object-Xml mapping
-		Vets vets = new Vets();
 		Page<Vet> paginated = findPaginated(page);
-		vets.getVetList().addAll(paginated.toList());
 		return addPaginationModel(page, paginated, model);
 	}
 
@@ -64,6 +90,29 @@ class VetController {
 		int pageSize = 5;
 		Pageable pageable = PageRequest.of(page - 1, pageSize);
 		return vetRepository.findAll(pageable);
+	}
+
+	@GetMapping("/vets/{vetId}/edit")
+	public String initUpdateVetForm() {
+		return "vets/createOrUpdateVetForm";
+	}
+
+	@PostMapping("/vets/{vetId}/edit")
+	public String processUpdateVetForm(@Valid Vet vet, BindingResult result, @PathVariable("vetId") int vetId,
+			RedirectAttributes redirectAttributes) {
+		if (result.hasErrors()) {
+			return "vets/createOrUpdateVetForm";
+		}
+
+		Optional<Vet> existingVet = this.vetRepository.findById(vetId);
+		if (existingVet.isEmpty()) {
+			throw new IllegalArgumentException("Vet not found with id: " + vetId);
+		}
+
+		vet.setId(vetId);
+		this.vetRepository.save(vet);
+		redirectAttributes.addFlashAttribute("message", "Vet specialties updated");
+		return "redirect:/vets.html";
 	}
 
 	@GetMapping({ "/vets" })

@@ -16,6 +16,7 @@
 package org.springframework.samples.petclinic.model;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -46,6 +47,23 @@ public class BaseEntity implements Serializable {
 
 	public boolean isNew() {
 		return this.id == null;
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		if (other == null || getClass() != other.getClass()) {
+			return false;
+		}
+		BaseEntity that = (BaseEntity) other;
+		return this.id != null && Objects.equals(this.id, that.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return getClass().hashCode();
 	}
 
 }

@@ -23,6 +23,7 @@ import org.springframework.data.repository.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.Optional;
 
 /**
  * Repository class for <code>Vet</code> domain objects All method names are compliant
@@ -54,5 +55,22 @@ public interface VetRepository extends Repository<Vet, Integer> {
 	@Transactional(readOnly = true)
 	@Cacheable("vets")
 	Page<Vet> findAll(Pageable pageable) throws DataAccessException;
+
+	/**
+	 * Retrieve a {@link Vet} from the data store by id.
+	 * @param id the id to search for
+	 * @return an {@link Optional} containing the {@link Vet} if found, or an empty
+	 * {@link Optional} if no {@link Vet} is found
+	 */
+	@Transactional(readOnly = true)
+	Optional<Vet> findById(Integer id) throws DataAccessException;
+
+	/**
+	 * Save a {@link Vet} to the data store.
+	 * @param vet the vet to save
+	 * @return the saved vet
+	 */
+	@Transactional
+	Vet save(Vet vet) throws DataAccessException;
 
 }

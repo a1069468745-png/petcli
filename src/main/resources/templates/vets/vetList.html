@@ -6,11 +6,20 @@
 
   <h2 th:text="#{vets}">Veterinarians</h2>
 
+  <div th:if="${message}" class="alert alert-success" id="success-message">
+    <span th:text="${message}"></span>
+  </div>
+
+  <div th:if="${error}" class="alert alert-danger" id="error-message">
+    <span th:text="${error}"></span>
+  </div>
+
   <table id="vets" class="table table-striped">
     <thead>
       <tr>
         <th th:text="#{name}">Name</th>
         <th th:text="#{specialties}">Specialties</th>
+        <th th:text="#{blank}"></th>
       </tr>
     </thead>
     <tbody>
@@ -19,6 +28,12 @@
         <td>
           <span th:each="specialty : ${vet.specialties}" th:text="${specialty.name + ' '}" /> <span
             th:if="${vet.nrOfSpecialties == 0}" th:text="#{none}">none</span>
+        </td>
+        <td>
+          <a class="btn btn-primary btn-sm mt-0 text-nowrap" th:href="@{/vets/__${vet.id}__/edit}"
+            th:text="#{editVetSpecialties}">
+            Edit Specialties
+          </a>
         </td>
       </tr>
     </tbody>

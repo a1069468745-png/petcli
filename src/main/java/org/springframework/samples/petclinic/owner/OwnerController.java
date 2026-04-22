@@ -18,10 +18,12 @@ package org.springframework.samples.petclinic.owner;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Locale;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -94,17 +96,9 @@ class OwnerController {
 	@GetMapping("/owners")
 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
 			Model model) {
-		// allow parameterless GET request for /owners to return all records
-		String lastName = owner.getLastName();
-		if (lastName == null) {
-			lastName = ""; // empty string signifies broadest possible search
-		}
-
-		// find owners by last name
-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
+		Page<Owner> ownersResults = findPaginatedForOwners(page, owner);
 		if (ownersResults.isEmpty()) {
-			// no owners found
-			result.rejectValue("lastName", "notFound", "not found");
+			result.reject("notFound", "not found");
 			return "owners/findOwners";
 		}
 
@@ -115,22 +109,37 @@ class OwnerController {
 		}
 
 		// multiple owners found
-		return addPaginationModel(page, model, ownersResults);
+		return addPaginationModel(page, owner, model, ownersResults);
 	}
 
-	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
+	private String addPaginationModel(int page, Owner owner, Model model, Page<Owner> paginated) {
 		List<Owner> listOwners = paginated.getContent();
 		model.addAttribute("currentPage", page);
 		model.addAttribute("totalPages", paginated.getTotalPages());
 		model.addAttribute("totalItems", paginated.getTotalElements());
 		model.addAttribute("listOwners", listOwners);
+		model.addAttribute("searchOwner", owner);
 		return "owners/ownersList";
 	}
 
-	private Page<Owner> findPaginatedForOwnersLastName(int page, String lastname) {
+	private Page<Owner> findPaginatedForOwners(int page, Owner owner) {
 		int pageSize = 5;
 		Pageable pageable = PageRequest.of(page - 1, pageSize);
-		return owners.findByLastNameStartingWith(lastname, pageable);
+		Specification<Owner> specification = null;
+		specification = addStartsWith(specification, "firstName", owner.getFirstName());
+		specification = addStartsWith(specification, "lastName", owner.getLastName());
+		specification = addStartsWith(specification, "city", owner.getCity());
+		specification = addStartsWith(specification, "telephone", owner.getTelephone());
+		return owners.findAll(specification, pageable);
+	}
+
+	private Specification<Owner> addStartsWith(Specification<Owner> specification, String attributeName, String value) {
+		if (value == null || value.isBlank()) {
+			return specification;
+		}
+		String prefix = value.toLowerCase(Locale.ENGLISH);
+		Specification<Owner> filter = (root, query, cb) -> cb.like(cb.lower(root.get(attributeName)), prefix + "%");
+		return specification == null ? filter : specification.and(filter);
 	}
 
 	@GetMapping("/owners/{ownerId}/edit")

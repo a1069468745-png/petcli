@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
@@ -31,16 +33,22 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import java.util.Optional;
+
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Test class for the {@link VetController}
  */
 
-@WebMvcTest(VetController.class)
+@WebMvcTest(value = VetController.class,
+		includeFilters = @ComponentScan.Filter(value = SpecialtyFormatter.class, type = FilterType.ASSIGNABLE_TYPE))
 @DisabledInNativeImage
 @DisabledInAotMode
 class VetControllerTests {
@@ -50,6 +58,9 @@ class VetControllerTests {
 
 	@MockitoBean
 	private VetRepository vets;
+
+	@MockitoBean
+	private SpecialtyRepository specialties;
 
 	private Vet james() {
 		Vet james = new Vet();
@@ -76,7 +87,25 @@ class VetControllerTests {
 		given(this.vets.findAll()).willReturn(Lists.newArrayList(james(), helen()));
 		given(this.vets.findAll(any(Pageable.class)))
 			.willReturn(new PageImpl<Vet>(Lists.newArrayList(james(), helen())));
+		given(this.vets.findById(1)).willReturn(Optional.of(helen()));
+		given(this.specialties.findSpecialties()).willReturn(Lists.newArrayList(makeRadiology(), makeSurgery()));
+		given(this.specialties.findById(eq(1))).willReturn(Optional.of(makeRadiology()));
+		given(this.specialties.findById(eq(2))).willReturn(Optional.of(makeSurgery()));
 
+	}
+
+	private Specialty makeRadiology() {
+		Specialty specialty = new Specialty();
+		specialty.setId(1);
+		specialty.setName("radiology");
+		return specialty;
+	}
+
+	private Specialty makeSurgery() {
+		Specialty specialty = new Specialty();
+		specialty.setId(2);
+		specialty.setName("surgery");
+		return specialty;
 	}
 
 	@Test
@@ -95,6 +124,28 @@ class VetControllerTests {
 			.andExpect(status().isOk());
 		actions.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.vetList[0].id").value(1));
+	}
+
+	@Test
+	void initUpdateVetForm() throws Exception {
+		mockMvc.perform(get("/vets/{vetId}/edit", 1))
+			.andExpect(status().isOk())
+			.andExpect(model().attributeExists("vet"))
+			.andExpect(model().attributeExists("specialties"))
+			.andExpect(content().string(containsString("checked")))
+			.andExpect(view().name("vets/createOrUpdateVetForm"));
+	}
+
+	@Test
+	void processUpdateVetFormSuccess() throws Exception {
+		Vet james = james();
+		Specialty radiology = makeRadiology();
+		james.addSpecialty(radiology);
+		given(this.vets.findById(1)).willReturn(Optional.of(james));
+
+		mockMvc.perform(post("/vets/{vetId}/edit", 1).param("specialties", "radiology"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(view().name("redirect:/vets.html"));
 	}
 
 }

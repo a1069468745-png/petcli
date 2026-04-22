@@ -17,6 +17,7 @@ package org.springframework.samples.petclinic.vet;
 
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -69,6 +70,14 @@ public class Vet extends Person {
 
 	public void addSpecialty(Specialty specialty) {
 		getSpecialtiesInternal().add(specialty);
+	}
+
+	public void setSpecialties(Collection<Specialty> specialties) {
+		Set<Specialty> specialtySet = getSpecialtiesInternal();
+		specialtySet.clear();
+		if (specialties != null) {
+			specialtySet.addAll(specialties);
+		}
 	}
 
 }
